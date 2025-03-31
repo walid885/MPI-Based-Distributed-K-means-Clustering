@@ -1,0 +1,20 @@
+K-means Clustering Performance Comparison
+========================================
+
+1. Total Runtime Comparison:
+   Sequential implementation: 6.1877 seconds
+   Parallel (2 processes): 6.2948 seconds (Speedup: 0.98x)
+   Parallel (4 processes): 5.5363 seconds (Speedup: 1.12x)
+   Parallel (6 processes): 6.0499 seconds (Speedup: 1.02x)
+
+2. Individual K-means Runs:
+
+   K=3:
+   Sequential: 1.0011 seconds, Inertia: 129880.97
+   Parallel: 0.1642 seconds, Inertia: 129880.97, Iterations: 29
+   Speedup: 6.10x
+
+   K=4:
+   Sequential: 1.0020 seconds, Inertia: 99792.02
+   Parallel: 0.1078 seconds, Inertia: 99792.02, Iterations: 14
+   Speedup: 9.30x

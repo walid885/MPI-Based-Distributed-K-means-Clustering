@@ -1,5 +1,0 @@
-Sequential K-means Performance Comparison
-=========================================
-
-K=3: Execution time = 1.0011s, Inertia = 129874.60
-K=4: Execution time = 1.0020s, Inertia = 99789.71

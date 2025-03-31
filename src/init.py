@@ -25,6 +25,7 @@ print(df.describe())
 print("\nMissing Values:")
 print(df.isnull().sum())
 
+
 # Check for unique values in each column (for categorical features)
 print("\nUnique Values in Each Column:")
 for col in df.columns:

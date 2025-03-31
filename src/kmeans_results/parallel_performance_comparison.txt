@@ -1,0 +1,5 @@
+Parallel K-means Performance Comparison
+=======================================
+
+K=3: Execution time = 0.4575s, Inertia = 129880.02, Iterations = 20
+K=4: Execution time = 0.5135s, Inertia = 99792.23, Iterations = 25

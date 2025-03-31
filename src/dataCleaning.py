@@ -1,5 +1,12 @@
 import pandas as pd
 import numpy as np
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+from sklearn.preprocessing import StandardScaler
+import seaborn as sns
+from sklearn.decomposition import PCA
+
 
 # Load the dataset
 df = pd.read_csv('../AstroDataset/star_classification.csv')
@@ -53,3 +60,61 @@ X_scaled_df = pd.DataFrame(X_scaled, columns=features)
 print("\nScaled Features Statistics:")
 print(X_scaled_df.describe())
 
+
+
+
+df = pd.read_csv('../AstroDataset/star_classification.csv')
+
+# Correlation matrix
+plt.figure(figsize=(10, 8))
+correlation = X.corr()
+sns.heatmap(correlation, annot=True, cmap='coolwarm')
+plt.title('Correlation Between Photometric Bands')
+plt.tight_layout()
+plt.savefig('correlation_matrix.png')
+plt.show()
+
+# PCA for visualization and dimensionality reduction
+pca = PCA(n_components=2)
+X_pca = pca.fit_transform(X_scaled)
+
+# Visualize data in 2D PCA space with class colors
+plt.figure(figsize=(12, 10))
+classes = df['class'].unique()
+colors = ['b', 'r', 'g']  # blue for GALAXY, red for QSO, green for STAR
+for i, cls in enumerate(classes):
+    plt.scatter(X_pca[df['class'] == cls, 0], 
+                X_pca[df['class'] == cls, 1],
+                c=colors[i], label=cls, alpha=0.5)
+plt.title('PCA of Astronomical Objects')
+plt.xlabel('PC1')
+plt.ylabel('PC2')
+plt.legend()
+plt.savefig('pca_visualization.png')
+plt.show()
+
+print(f"Explained variance ratio: {pca.explained_variance_ratio_}")
+
+from sklearn.cluster import KMeans
+from sklearn.metrics import silhouette_score
+
+# Elbow method to find optimal K
+# Just use inertia (elbow method) on the full dataset
+inertia = []
+k_range = range(2, 11)
+
+for k in k_range:
+    kmeans = KMeans(n_clusters=k, random_state=42, n_init=10)
+    kmeans.fit(X_scaled)
+    inertia.append(kmeans.inertia_)
+    print(f"K={k}, Inertia={kmeans.inertia_:.2f}")
+
+# Plot just the elbow curve
+plt.figure(figsize=(10, 6))
+plt.plot(k_range, inertia, 'o-')
+plt.xlabel('Number of clusters (K)')
+plt.ylabel('Inertia')
+plt.title('Elbow Method for Optimal K')
+plt.grid(True)
+plt.savefig('optimal_k_inertia.png')
+plt.show()

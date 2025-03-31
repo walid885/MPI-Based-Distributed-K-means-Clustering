@@ -1,0 +1,65 @@
+# Astronomical Data Analysis and K-means Clustering - Step-by-Step Explanation
+
+This document explains each step of the data analysis process for the astronomical dataset, in chronological order.
+
+## 1. Data Loading and Initial Inspection
+- We load the dataset using pandas to work with the tabular data structure
+- The dataset contains information about astronomical objects with features like object IDs, coordinates, photometric measurements, and classifications
+
+## 2. Handling Missing Values (-9999)
+- In astronomical datasets, the value -9999 is commonly used as a placeholder for missing data
+- We replace these values with NaN (Not a Number) to properly handle them in pandas
+- For the photometric bands (u, g, r, i, z), we impute missing values with the median of each column
+- This approach preserves the sample size while minimizing the impact on the distribution of values
+
+## 3. Data Exploration
+- We examine the class distribution to understand the balance between different astronomical objects (GALAXY, STAR, QSO)
+- This helps set expectations for clustering and provides a reference for evaluating clustering results
+- Visualizing the class distribution gives us insight into potential class imbalances
+
+## 4. Feature Selection
+- We focus on the photometric bands (u, g, r, i, z) which are the magnitude measurements across different wavelengths
+- These features are most relevant for distinguishing between different types of astronomical objects
+- Other features like coordinates or IDs are not useful for the clustering task
+
+## 5. Feature Normalization
+- K-means uses Euclidean distance, making it sensitive to the scale of features
+- We standardize the features (subtract mean, divide by standard deviation) to ensure all features contribute equally
+- This prevents features with larger scales from dominating the clustering process
+
+## 6. Correlation Analysis
+- We generate a correlation matrix to understand relationships between features
+- High correlation between features may indicate redundancy in the data
+- This helps us understand if certain wavelength bands provide similar or distinct information
+
+## 7. Dimensionality Reduction with PCA
+- Principal Component Analysis (PCA) helps visualize high-dimensional data in 2D
+- It reveals natural clusters in the data and shows if classes are linearly separable
+- The explained variance ratio tells us how much information is preserved in the 2D projection
+- In our case, the first two components explain about 97.4% of the variance, indicating strong structure in the data
+
+## 8. Finding Optimal K using Elbow Method
+- The elbow method helps determine the optimal number of clusters
+- We plot inertia (sum of squared distances to closest centroid) against different K values
+- The "elbow" point indicates where adding more clusters provides diminishing returns
+- For our dataset, K=3 appears to be a good choice, which aligns with the 3 known classes
+
+## 9. K-means Clustering Implementation
+- We implement K-means with the optimal K value identified
+- K-means works by:
+  1. Randomly initializing K centroids
+  2. Assigning each data point to the nearest centroid
+  3. Recalculating centroids based on the mean of points in each cluster
+  4. Repeating steps 2-3 until convergence
+
+## 10. Visualization and Analysis
+- We visualize clustering results in the PCA space to see how well they align with known classes
+- The quality of clustering is assessed through:
+  - Visual inspection of cluster separation
+  - Comparison with known classes
+  - Analysis of cluster centers to understand what distinguishes each cluster
+
+## 11. Insights Generation
+- We save various visualizations (class distribution, correlation matrix, PCA visualization, elbow curve)
+- These visualizations provide insights into the structure of astronomical data and the performance of K-means
+- The analysis reveals how well unsupervised learning (K-means) can recover the known classes of astronomical objects

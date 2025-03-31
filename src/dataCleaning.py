@@ -1,12 +1,16 @@
 import pandas as pd
 import numpy as np
-import pandas as pd
-import numpy as np
 import matplotlib.pyplot as plt
 from sklearn.preprocessing import StandardScaler
 import seaborn as sns
 from sklearn.decomposition import PCA
+from sklearn.cluster import KMeans
+import os
 
+# Create a directory to save the plots if it doesn't exist
+if not os.path.exists("insights_plots"):
+    os.makedirs("insights_plots")
+    print("Created directory: insights_plots")
 
 # Load the dataset
 df = pd.read_csv('../AstroDataset/star_classification.csv')
@@ -17,9 +21,6 @@ df.replace(-9999.0, np.nan, inplace=True)
 # See how many NaN values we have now
 print("Missing values after replacement:")
 print(df.isnull().sum())
-
-# Option 1: Drop rows with missing values
-# df_clean = df.dropna()
 
 # Option 2: Impute missing values (with median)
 for col in ['u', 'g', 'r', 'i', 'z']:
@@ -34,22 +35,20 @@ print("\nClass Distribution:")
 print(class_counts)
 
 # Visualize class distribution
-import matplotlib.pyplot as plt
 plt.figure(figsize=(10, 6))
 class_counts.plot(kind='bar')
 plt.title('Distribution of Astronomical Object Classes')
 plt.ylabel('Count')
 plt.tight_layout()
-plt.savefig('class_distribution.png')
+# Save as PDF instead of PNG
+plt.savefig('insights_plots/class_distribution.pdf')
 plt.show()
-
 
 # Select features for clustering
 features = ['u', 'g', 'r', 'i', 'z']  # Photometric bands
 X = df[features]
 
 # Normalize the features (very important for K-means)
-from sklearn.preprocessing import StandardScaler
 scaler = StandardScaler()
 X_scaled = scaler.fit_transform(X)
 
@@ -60,18 +59,14 @@ X_scaled_df = pd.DataFrame(X_scaled, columns=features)
 print("\nScaled Features Statistics:")
 print(X_scaled_df.describe())
 
-
-
-
-df = pd.read_csv('../AstroDataset/star_classification.csv')
-
 # Correlation matrix
 plt.figure(figsize=(10, 8))
 correlation = X.corr()
 sns.heatmap(correlation, annot=True, cmap='coolwarm')
 plt.title('Correlation Between Photometric Bands')
 plt.tight_layout()
-plt.savefig('correlation_matrix.png')
+# Save as PDF instead of PNG
+plt.savefig('insights_plots/correlation_matrix.pdf')
 plt.show()
 
 # PCA for visualization and dimensionality reduction
@@ -90,16 +85,13 @@ plt.title('PCA of Astronomical Objects')
 plt.xlabel('PC1')
 plt.ylabel('PC2')
 plt.legend()
-plt.savefig('pca_visualization.png')
+# Save as PDF instead of PNG
+plt.savefig('insights_plots/pca_visualization.pdf')
 plt.show()
 
 print(f"Explained variance ratio: {pca.explained_variance_ratio_}")
 
-from sklearn.cluster import KMeans
-from sklearn.metrics import silhouette_score
-
 # Elbow method to find optimal K
-# Just use inertia (elbow method) on the full dataset
 inertia = []
 k_range = range(2, 11)
 
@@ -116,5 +108,6 @@ plt.xlabel('Number of clusters (K)')
 plt.ylabel('Inertia')
 plt.title('Elbow Method for Optimal K')
 plt.grid(True)
-plt.savefig('optimal_k_inertia.png')
+# Save as PDF instead of PNG
+plt.savefig('insights_plots/optimal_k_inertia.pdf')
 plt.show()

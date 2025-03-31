@@ -1,5 +1,9 @@
 import pandas as pd
-
+"""
+the first interaction with the dataset, in order 
+to get an idea about the quality of the data set , as well , 
+how well is it established ! 
+"""
 # Assuming your dataset is in a CSV format
 # Replace 'your_dataset.csv' with the actual path to your dataset
 df = pd.read_csv('../AstroDataset/star_classification.csv')

@@ -1,4 +1,3 @@
-# MPI-Based-Distributed-K-means-Clustering
 # MPI-Based Distributed K-means Clustering on Astronomical Data
 
 This project showcases **parallel and sequential K-means clustering** and compares their performance using real-world astronomical data. It handles end-to-end automation, from data cleaning and statistical analysis, to clustering and performance reporting—with clear visualizations.

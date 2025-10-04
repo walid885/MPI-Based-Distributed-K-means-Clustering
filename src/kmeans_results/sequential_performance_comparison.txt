@@ -1,5 +1,38 @@
-Sequential K-means Performance Comparison
-=========================================
+SEQUENTIAL K-MEANS PERFORMANCE REPORT
+================================================================================
 
-K=3: Execution time = 1.0240s, Inertia = 129874.60
-K=4: Execution time = 1.0010s, Inertia = 99789.71
+DATASET INFORMATION
+--------------------------------------------------------------------------------
+Total Samples: 100,000
+Features: 18
+Dataset Size: 18.12 MB
+Load Time: 0.1167 seconds
+
+PREPROCESSING METRICS
+--------------------------------------------------------------------------------
+Missing Values Imputed: 3
+Preprocessing Time: 0.0257 seconds
+Scaling Time: 0.0032 seconds
+
+CLUSTERING RESULTS
+--------------------------------------------------------------------------------
+
+K=3:
+  Execution Time: 1.0048 seconds
+  Throughput: 99525 samples/sec
+  Iterations: 10
+  Inertia: 129874.60
+  Silhouette Score: 0.3782
+  Davies-Bouldin Index: 0.9846
+  Calinski-Harabasz Score: 142490.51
+  Memory Used: 1.75 MB
+
+K=4:
+  Execution Time: 1.0436 seconds
+  Throughput: 95826 samples/sec
+  Iterations: 13
+  Inertia: 99789.71
+  Silhouette Score: 0.3842
+  Davies-Bouldin Index: 0.9331
+  Calinski-Harabasz Score: 133680.09
+  Memory Used: 0.12 MB

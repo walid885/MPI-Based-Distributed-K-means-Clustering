@@ -1,0 +1,35 @@
+[0;34m════════════════════════════════════════════════════════════════[0m
+[0;34m    MPI-Based K-means Clustering - Comprehensive Benchmark[0m
+[0;34m════════════════════════════════════════════════════════════════[0m
+[0;36mStarted: 03 أكتوبر, 2025 CET 08:23:13 م[0m
+[0;36mLog file: benchmark_log_20251003_202313.txt[0m
+
+[0;33m[1/7] Checking prerequisites...[0m
+  ✓ Python3: Python 3.13.5
+  ✓ MPI: mpirun (Open MPI) 4.1.2
+  ✓ Available CPUs: 12
+  ✓ Dataset found: 16M
+
+[0;33m[2/7] Data Cleaning & Preprocessing...[0m
+[0;32m✓ Data cleaning completed successfully![0m
+  Time: 22s
+
+[0;33m[3/7] Dataset Analysis & EDA...[0m
+[0;35m  ⊙ Using original script...[0m
+[0;35m  ⊙ No insights script found[0m
+  Time: 0s
+
+[0;33m[4/7] Sequential K-means Baseline...[0m
+[0;32m✓ Sequential K-means completed successfully![0m
+  Execution time: 227s
+
+[0;33m[5/7] Parallel K-means Clustering...[0m
+  [0;36mTesting with 2 processes...[0m
+[0;32m✓ Parallel K-means (2 processes) completed successfully![0m
+  Execution time: 161s (Speedup: 1.41x)
+  [0;36mTesting with 4 processes...[0m
+[0;32m✓ Parallel K-means (4 processes) completed successfully![0m
+  Execution time: 217s (Speedup: 1.05x)
+
+[0;33m[6/7] Generating Performance Comparison...[0m
+[0;31m✗ Performance comparison encountered an error.[0m

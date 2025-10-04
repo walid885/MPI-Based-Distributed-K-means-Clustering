@@ -1,0 +1,57 @@
+{
+    "dataset_info": {
+        "total_samples": 100000,
+        "total_features": 18,
+        "memory_usage_mb": 18.12,
+        "load_time_seconds": 0.2301,
+        "samples_per_process": 16666
+    },
+    "preprocessing_metrics": {
+        "preprocessing_time_seconds": 0.0217
+    },
+    "clustering_metrics": {
+        "k_3": {
+            "execution_time_seconds": 0.1087,
+            "iterations": 14,
+            "avg_iteration_time_seconds": 0.002,
+            "inertia": 129880.82,
+            "silhouette_score": 0.3762,
+            "davies_bouldin_index": 0.9935,
+            "calinski_harabasz_score": 142479.88,
+            "memory_used_mb": 0.88,
+            "throughput_samples_per_sec": 919579.66,
+            "cluster_balance_ratio": 0.608,
+            "cluster_sizes": {
+                "0": 42940,
+                "1": 30938,
+                "2": 26122
+            }
+        },
+        "k_4": {
+            "execution_time_seconds": 0.1148,
+            "iterations": 15,
+            "avg_iteration_time_seconds": 0.0028,
+            "inertia": 99792.12,
+            "silhouette_score": 0.3842,
+            "davies_bouldin_index": 0.9331,
+            "calinski_harabasz_score": 133675.18,
+            "memory_used_mb": 0.0,
+            "throughput_samples_per_sec": 870783.73,
+            "cluster_balance_ratio": 0.74,
+            "cluster_sizes": {
+                "2": 30194,
+                "0": 24133,
+                "1": 23343,
+                "3": 22330
+            }
+        }
+    },
+    "performance_metrics": {},
+    "parallel_metrics": {
+        "num_processes": 6,
+        "total_runtime_seconds": 0.2236,
+        "average_throughput_samples_per_sec": 895181.7,
+        "parallelization_method": "MPI (Message Passing Interface)",
+        "communication_overhead_estimated": "Measured per iteration"
+    }
+}

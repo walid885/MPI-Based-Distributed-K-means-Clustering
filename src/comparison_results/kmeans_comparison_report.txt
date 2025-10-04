@@ -1,0 +1,12 @@
+K-means Clustering Performance Comparison
+========================================
+
+1. Total Runtime Comparison:
+   Sequential implementation: 226.2509 seconds
+   Parallel (2 processes): 163.7336 seconds (Speedup: 1.38x)
+   Parallel (4 processes): 216.1252 seconds (Speedup: 1.05x)
+   Parallel (6 processes): 214.6657 seconds (Speedup: 1.05x)
+
+2. Individual K-means Runs:
+
+   K=3:

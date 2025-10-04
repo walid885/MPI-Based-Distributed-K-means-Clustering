@@ -3,70 +3,57 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 from sklearn.preprocessing import StandardScaler
+from sklearn.metrics import silhouette_score, davies_bouldin_score, calinski_harabasz_score
 import time
 import os
 import json
+import psutil
 
-def parallel_kmeans(X, k, max_iterations=100, tol=1e-4):
+def parallel_kmeans(X, k, max_iterations=300, tol=1e-4):
     """
-    Parallel implementation of K-means clustering using MPI.
-    
-    Parameters:
-    - X: Scaled feature matrix (numpy array)
-    - k: Number of clusters
-    - max_iterations: Maximum number of iterations
-    - tol: Convergence tolerance
-    
-    Returns:
-    - centroids: Final cluster centroids
-    - labels: Cluster assignments for each data point
-    - inertia: Sum of squared distances to centroids
-    - iterations: Number of iterations performed
+    Parallel K-means implementation using MPI with detailed metrics
     """
-    # Initialize MPI environment
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank()
     size = comm.Get_size()
     
-    # Only the root process (rank 0) should initialize centroids
+    # Initialize centroids on root
     if rank == 0:
-        # Initialize centroids randomly from the data points
         indices = np.random.choice(X.shape[0], k, replace=False)
         centroids = X[indices].copy()
     else:
         centroids = None
     
-    # Broadcast initial centroids to all processes
     centroids = comm.bcast(centroids, root=0)
     
-    # Calculate number of data points per process
+    # Data distribution
     n_samples = X.shape[0]
     samples_per_process = n_samples // size
-    
-    # Determine start and end indices for this process's data chunk
     start_idx = rank * samples_per_process
     end_idx = start_idx + samples_per_process if rank < size - 1 else n_samples
-    
-    # Get the local data chunk
     X_local = X[start_idx:end_idx]
     
-    # Initialize variables
+    # Track metrics
+    local_samples = X_local.shape[0]
+    
+    # K-means iterations
     prev_centroids = np.zeros_like(centroids)
     labels_local = np.zeros(X_local.shape[0], dtype=int)
     iterations = 0
     converged = False
     
-    # Main K-means loop
+    iteration_times = []
+    
     while not converged and iterations < max_iterations:
-        # Compute distances to centroids for local data
+        iter_start = time.time()
+        
+        # Compute distances and assign clusters
         distances = np.zeros((X_local.shape[0], k))
         for i in range(k):
             distances[:, i] = np.sum((X_local - centroids[i])**2, axis=1)
-        
-        # Assign points to nearest centroid
         labels_local = np.argmin(distances, axis=1)
         
-        # Compute sum of points and count for each cluster
+        # Compute local sums and counts
         local_sums = np.zeros((k, X.shape[1]))
         local_counts = np.zeros(k, dtype=int)
         
@@ -76,52 +63,42 @@ def parallel_kmeans(X, k, max_iterations=100, tol=1e-4):
                 local_sums[i] = np.sum(cluster_points, axis=0)
                 local_counts[i] = len(cluster_points)
         
-        # Gather sums and counts from all processes
+        # Global reduction
         global_sums = np.zeros_like(local_sums)
         global_counts = np.zeros_like(local_counts)
-        
         comm.Reduce(local_sums, global_sums, op=MPI.SUM, root=0)
         comm.Reduce(local_counts, global_counts, op=MPI.SUM, root=0)
         
-        # Only the root process updates centroids
+        # Update centroids on root
         if rank == 0:
-            # Store previous centroids
             prev_centroids = centroids.copy()
-            
-            # Update centroids
             for i in range(k):
                 if global_counts[i] > 0:
                     centroids[i] = global_sums[i] / global_counts[i]
-            
-            # Check for convergence
             centroid_shift = np.sum((centroids - prev_centroids)**2)
             converged = centroid_shift < tol
         
-        # Broadcast updated centroids and convergence status
         centroids = comm.bcast(centroids, root=0)
         converged = comm.bcast(converged, root=0)
         
+        iter_time = time.time() - iter_start
+        iteration_times.append(iter_time)
         iterations += 1
     
-    # Calculate local inertia (sum of squared distances to assigned centroids)
+    # Calculate local inertia
     local_inertia = 0.0
     for i in range(X_local.shape[0]):
         local_inertia += np.sum((X_local[i] - centroids[labels_local[i]])**2)
     
-    # Sum local inertia across all processes
     global_inertia = comm.allreduce(local_inertia, op=MPI.SUM)
     
     # Gather all labels
     labels_counts = comm.gather(len(labels_local), root=0)
     
     if rank == 0:
-        # Allocate array for all labels
         all_labels = np.zeros(n_samples, dtype=int)
-        
-        # Root process collects its own labels
         all_labels[start_idx:end_idx] = labels_local
         
-        # Receive labels from other processes
         for i in range(1, size):
             proc_start = i * samples_per_process
             proc_end = proc_start + samples_per_process if i < size - 1 else n_samples
@@ -129,156 +106,285 @@ def parallel_kmeans(X, k, max_iterations=100, tol=1e-4):
             comm.Recv(proc_labels, source=i, tag=10)
             all_labels[proc_start:proc_end] = proc_labels
     else:
-        # Send labels to root process
         comm.Send(labels_local, dest=0, tag=10)
         all_labels = None
     
-    # Broadcast all labels to all processes
     all_labels = comm.bcast(all_labels, root=0)
     
-    return centroids, all_labels, global_inertia, iterations
+    # Communication metrics
+    comm_overhead = {
+        'avg_iteration_time': np.mean(iteration_times),
+        'total_iterations': iterations,
+        'samples_per_process': local_samples
+    }
+    
+    return centroids, all_labels, global_inertia, iterations, comm_overhead
 
 def run_parallel_kmeans(k_values=[3, 4]):
     """
-    Run parallel K-means for specified k values and analyze results.
+    Run parallel K-means with comprehensive benchmarking
     """
-    # Initialize MPI
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank()
+    size = comm.Get_size()
     
-    # Create results directory (only in rank 0)
+    # Create directories on rank 0
     if rank == 0:
-        if not os.path.exists("kmeans_results"):
-            os.makedirs("kmeans_results")
-            print("Created directory: kmeans_results")
+        os.makedirs("kmeans_results", exist_ok=True)
+        os.makedirs("benchmarks", exist_ok=True)
+        
+        benchmark_metrics = {
+            'dataset_info': {},
+            'preprocessing_metrics': {},
+            'clustering_metrics': {},
+            'performance_metrics': {},
+            'parallel_metrics': {}
+        }
     
-    # Wait for directory creation
     comm.Barrier()
     
-    # Load and preprocess data (all processes load data)
+    # Load dataset (all processes)
+    load_start = time.time()
     df = pd.read_csv('../AstroDataset/star_classification.csv')
+    load_time = time.time() - load_start
     
-    # Replace -9999 values with NaN
+    if rank == 0:
+        dataset_size = df.shape[0]
+        dataset_features = df.shape[1]
+        dataset_memory_mb = df.memory_usage(deep=True).sum() / (1024 * 1024)
+        
+        benchmark_metrics['dataset_info'] = {
+            'total_samples': int(dataset_size),
+            'total_features': int(dataset_features),
+            'memory_usage_mb': round(dataset_memory_mb, 2),
+            'load_time_seconds': round(load_time, 4),
+            'samples_per_process': int(dataset_size // size)
+        }
+        
+        print(f"{'='*70}")
+        print(f"PARALLEL K-MEANS CLUSTERING ({size} MPI Processes)")
+        print(f"{'='*70}")
+        print(f"Dataset: {dataset_size:,} samples distributed across {size} processes")
+        print(f"Samples per process: ~{dataset_size // size:,}")
+    
+    # Preprocessing
+    preprocess_start = time.time()
     df.replace(-9999.0, np.nan, inplace=True)
     
-    # Impute missing values with median
-    for col in ['u', 'g', 'r', 'i', 'z']:
+    features = ['u', 'g', 'r', 'i', 'z']
+    for col in features:
         df[col].fillna(df[col].median(), inplace=True)
     
-    # Select features for clustering
-    features = ['u', 'g', 'r', 'i', 'z']
     X = df[features].values
-    
-    # Normalize the features
     scaler = StandardScaler()
     X_scaled = scaler.fit_transform(X)
+    preprocess_time = time.time() - preprocess_start
     
-    # Store results for different k values
+    if rank == 0:
+        benchmark_metrics['preprocessing_metrics'] = {
+            'preprocessing_time_seconds': round(preprocess_time, 4)
+        }
+    
     results = {}
     
-    # Run parallel K-means for each k value
+    # Run parallel K-means for each k
     for k in k_values:
         if rank == 0:
-            print(f"\nRunning Parallel K-means with k={k}...")
+            print(f"\n{'='*70}")
+            print(f"Running Parallel K-means with k={k}...")
+            print(f"{'='*70}")
+            
+            process = psutil.Process(os.getpid())
+            mem_before = process.memory_info().rss / (1024 * 1024)
         
-        # Measure execution time
+        comm.Barrier()  # Synchronize all processes
         start_time = time.time()
         
         # Run parallel K-means
-        centroids, labels, inertia, iterations = parallel_kmeans(X_scaled, k)
+        centroids, labels, inertia, iterations, comm_overhead = parallel_kmeans(X_scaled, k)
         
-        # Calculate execution time
+        comm.Barrier()  # Ensure all processes finish
         execution_time = time.time() - start_time
         
         if rank == 0:
-            print(f"Parallel K-means (k={k}) completed in {execution_time:.4f} seconds")
-            print(f"Inertia: {inertia:.2f}")
-            print(f"Iterations: {iterations}")
+            mem_after = process.memory_info().rss / (1024 * 1024)
+            memory_used = mem_after - mem_before
             
-            # Store results
+            # Quality metrics
+            silhouette = silhouette_score(X_scaled, labels)
+            davies_bouldin = davies_bouldin_score(X_scaled, labels)
+            calinski_harabasz = calinski_harabasz_score(X_scaled, labels)
+            
+            # Throughput
+            samples_per_second = dataset_size / execution_time
+            
+            # Parallel efficiency
+            ideal_speedup = size
+            parallel_efficiency = (1.0 / execution_time) / (1.0 / execution_time * size) * 100  # Placeholder
+            
             results[k] = {
                 'centroids': centroids.tolist(),
                 'labels': labels.tolist(),
                 'inertia': float(inertia),
                 'iterations': iterations,
-                'execution_time': execution_time
+                'execution_time': execution_time,
+                'silhouette_score': silhouette,
+                'davies_bouldin_score': davies_bouldin,
+                'calinski_harabasz_score': calinski_harabasz,
+                'memory_used_mb': memory_used,
+                'throughput_samples_per_sec': samples_per_second,
+                'avg_iteration_time': comm_overhead['avg_iteration_time']
             }
             
-            # Add cluster labels to the original dataframe for analysis
+            print(f"✓ Completed in {execution_time:.4f} seconds ({samples_per_second:.0f} samples/sec)")
+            print(f"  Iterations: {iterations}")
+            print(f"  Avg iteration time: {comm_overhead['avg_iteration_time']:.4f} seconds")
+            print(f"  Inertia: {inertia:.2f}")
+            print(f"  Silhouette Score: {silhouette:.4f}")
+            print(f"  Davies-Bouldin Index: {davies_bouldin:.4f}")
+            print(f"  Calinski-Harabasz Score: {calinski_harabasz:.2f}")
+            print(f"  Memory Used: {memory_used:.2f} MB")
+            
+            # Cluster analysis
             df_with_clusters = df.copy()
             df_with_clusters[f'cluster_k{k}'] = labels
             
-            # Analyze cluster distribution
             cluster_counts = df_with_clusters[f'cluster_k{k}'].value_counts()
-            print(f"\nCluster Distribution (k={k}):")
-            print(cluster_counts)
+            cluster_sizes = cluster_counts.to_dict()
             
-            # Save cluster distribution plot
-            plt.figure(figsize=(10, 6))
-            cluster_counts.plot(kind='bar')
-            plt.title(f'Parallel Cluster Distribution (k={k})')
-            plt.ylabel('Count')
-            plt.xlabel('Cluster')
+            balance_ratio = cluster_counts.min() / cluster_counts.max()
+            
+            print(f"\n  Cluster Distribution:")
+            for cluster_id, count in sorted(cluster_sizes.items()):
+                percentage = (count / dataset_size) * 100
+                print(f"    Cluster {cluster_id}: {count:,} samples ({percentage:.1f}%)")
+            
+            # Save visualizations
+            fig, axes = plt.subplots(1, 2, figsize=(16, 6))
+            
+            cluster_counts.plot(kind='bar', ax=axes[0], color='coral')
+            axes[0].set_title(f'Parallel Cluster Distribution (k={k}, {size} processes)',
+                            fontsize=14, fontweight='bold')
+            axes[0].set_ylabel('Count', fontsize=12)
+            axes[0].set_xlabel('Cluster ID', fontsize=12)
+            axes[0].grid(axis='y', alpha=0.3)
+            
+            axes[1].pie(cluster_counts.values, labels=[f'Cluster {i}' for i in cluster_counts.index],
+                       autopct='%1.1f%%', startangle=90, colors=plt.cm.Pastel1.colors)
+            axes[1].set_title(f'Cluster Proportions (k={k})', fontsize=14, fontweight='bold')
+            
             plt.tight_layout()
-            plt.savefig(f'kmeans_results/parallel_cluster_distribution_k{k}.pdf')
+            plt.savefig(f'kmeans_results/parallel_cluster_distribution_k{k}.pdf', dpi=300)
             plt.close()
             
-            # Cross-tabulate clusters with actual classes
-            class_cluster_cross = pd.crosstab(
-                df_with_clusters['class'], 
-                df_with_clusters[f'cluster_k{k}'],
-                normalize='index'
-            )
+            # 2D visualization
+            plt.figure(figsize=(14, 10))
+            colors = plt.cm.plasma(np.linspace(0, 1, k))
             
-            print("\nClass distribution within clusters (normalized by class):")
-            print(class_cluster_cross)
-            
-            # Save cross-tabulation as CSV
-            class_cluster_cross.to_csv(f'kmeans_results/parallel_class_cluster_cross_k{k}.csv')
-            
-            # Visualize clusters in 2D using the first two features
-            plt.figure(figsize=(12, 10))
-            
-            # Plot data points colored by cluster
             for cluster_id in range(k):
                 cluster_points = X_scaled[labels == cluster_id]
-                plt.scatter(cluster_points[:, 0], cluster_points[:, 1], 
-                           label=f'Cluster {cluster_id}', alpha=0.5)
+                plt.scatter(cluster_points[:, 0], cluster_points[:, 1],
+                           label=f'Cluster {cluster_id} (n={len(cluster_points)})',
+                           alpha=0.6, s=20, color=colors[cluster_id])
             
-            # Plot cluster centroids
-            plt.scatter(centroids[:, 0], centroids[:, 1], 
-                       s=200, marker='X', c='black', label='Centroids')
+            plt.scatter(centroids[:, 0], centroids[:, 1],
+                       s=300, marker='*', c='red', edgecolors='black', linewidths=2,
+                       label='Centroids', zorder=10)
             
-            plt.title(f'Parallel K-means Clustering (k={k}) - First Two Features')
-            plt.xlabel(features[0])
-            plt.ylabel(features[1])
-            plt.legend()
-            plt.savefig(f'kmeans_results/parallel_clusters_visualization_k{k}.pdf')
+            plt.title(f'Parallel K-means Results (k={k}, {size} processes)\n'
+                     f'Silhouette: {silhouette:.4f}, Time: {execution_time:.2f}s',
+                     fontsize=14, fontweight='bold')
+            plt.xlabel(f'{features[0]} (scaled)', fontsize=12)
+            plt.ylabel(f'{features[1]} (scaled)', fontsize=12)
+            plt.legend(loc='best', framealpha=0.9)
+            plt.grid(alpha=0.3)
+            plt.tight_layout()
+            plt.savefig(f'kmeans_results/parallel_clusters_visualization_k{k}.pdf', dpi=300)
             plt.close()
+            
+            # Store metrics
+            benchmark_metrics['clustering_metrics'][f'k_{k}'] = {
+                'execution_time_seconds': round(execution_time, 4),
+                'iterations': int(iterations),
+                'avg_iteration_time_seconds': round(comm_overhead['avg_iteration_time'], 4),
+                'inertia': round(inertia, 2),
+                'silhouette_score': round(silhouette, 4),
+                'davies_bouldin_index': round(davies_bouldin, 4),
+                'calinski_harabasz_score': round(calinski_harabasz, 2),
+                'memory_used_mb': round(memory_used, 2),
+                'throughput_samples_per_sec': round(samples_per_second, 2),
+                'cluster_balance_ratio': round(balance_ratio, 3),
+                'cluster_sizes': cluster_sizes
+            }
     
-    # Save all results (rank 0 only)
+    # Save results on rank 0
     if rank == 0:
-        # Save comparison results
+        # Parallel performance metrics
+        total_runtime = sum([results[k]['execution_time'] for k in k_values])
+        avg_throughput = np.mean([results[k]['throughput_samples_per_sec'] for k in k_values])
+        
+        benchmark_metrics['parallel_metrics'] = {
+            'num_processes': size,
+            'total_runtime_seconds': round(total_runtime, 4),
+            'average_throughput_samples_per_sec': round(avg_throughput, 2),
+            'parallelization_method': 'MPI (Message Passing Interface)',
+            'communication_overhead_estimated': 'Measured per iteration'
+        }
+        
+        # Save comprehensive benchmark
+        with open('benchmarks/parallel_benchmark_report.json', 'w') as f:
+            json.dump(benchmark_metrics, f, indent=4)
+        
+        # Save results
         with open('kmeans_results/parallel_performance_results.json', 'w') as f:
             json.dump(results, f, indent=4)
         
-        # Write text summary
-        with open('kmeans_results/parallel_performance_comparison.txt', 'w') as f:
-            f.write("Parallel K-means Performance Comparison\n")
-            f.write("=======================================\n\n")
-            for k in k_values:
-                f.write(f"K={k}: Execution time = {results[k]['execution_time']:.4f}s, ")
-                f.write(f"Inertia = {results[k]['inertia']:.2f}, ")
-                f.write(f"Iterations = {results[k]['iterations']}\n")
-        
-        print("\n=========== Performance Comparison ===========")
+        # Performance comparison table
+        print("\n" + "="*70)
+        print("PERFORMANCE SUMMARY")
+        print("="*70)
+        print(f"{'K Value':<10} {'Time (s)':<12} {'Throughput':<18} {'Silhouette':<12}")
+        print("-"*70)
         for k in k_values:
-            print(f"K={k}: Execution time = {results[k]['execution_time']:.4f}s, ", end="")
-            print(f"Inertia = {results[k]['inertia']:.2f}, ", end="")
-            print(f"Iterations = {results[k]['iterations']}")
+            print(f"{k:<10} {results[k]['execution_time']:<12.4f} "
+                  f"{results[k]['throughput_samples_per_sec']:<18.0f} "
+                  f"{results[k]['silhouette_score']:<12.4f}")
+        
+        # Detailed report
+        with open('kmeans_results/parallel_performance_comparison.txt', 'w') as f:
+            f.write("PARALLEL K-MEANS PERFORMANCE REPORT\n")
+            f.write("="*80 + "\n\n")
+            
+            f.write("PARALLEL CONFIGURATION\n")
+            f.write("-"*80 + "\n")
+            f.write(f"Number of MPI Processes: {size}\n")
+            f.write(f"Samples per Process: ~{dataset_size // size:,}\n")
+            f.write(f"Total Dataset Size: {dataset_size:,} samples\n\n")
+            
+            f.write("CLUSTERING RESULTS\n")
+            f.write("-"*80 + "\n")
+            for k in k_values:
+                f.write(f"\nK={k}:\n")
+                f.write(f"  Execution Time: {results[k]['execution_time']:.4f} seconds\n")
+                f.write(f"  Throughput: {results[k]['throughput_samples_per_sec']:.0f} samples/sec\n")
+                f.write(f"  Iterations: {results[k]['iterations']}\n")
+                f.write(f"  Avg Iteration Time: {results[k]['avg_iteration_time']:.4f} seconds\n")
+                f.write(f"  Inertia: {results[k]['inertia']:.2f}\n")
+                f.write(f"  Silhouette Score: {results[k]['silhouette_score']:.4f}\n")
+                f.write(f"  Davies-Bouldin Index: {results[k]['davies_bouldin_score']:.4f}\n")
+                f.write(f"  Calinski-Harabasz Score: {results[k]['calinski_harabasz_score']:.2f}\n")
+                f.write(f"  Memory Used: {results[k]['memory_used_mb']:.2f} MB\n")
+        
+        print(f"\n{'='*70}")
+        print("BENCHMARK SUMMARY FOR RESUME")
+        print(f"{'='*70}")
+        print(f"✓ Processed {dataset_size:,} samples using {size} parallel processes")
+        print(f"✓ Achieved {avg_throughput:.0f} samples/second average throughput")
+        print(f"✓ Total runtime: {total_runtime:.2f} seconds")
+        print(f"✓ Data distributed: ~{dataset_size // size:,} samples per process")
+        print("✓ All results saved to kmeans_results/ and benchmarks/")
     
     return results
 
 if __name__ == "__main__":
-    # Run parallel K-means for k=3 and k=4
     results = run_parallel_kmeans(k_values=[3, 4])

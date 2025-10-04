@@ -1,5 +1,33 @@
-Parallel K-means Performance Comparison
-=======================================
+PARALLEL K-MEANS PERFORMANCE REPORT
+================================================================================
 
-K=3: Execution time = 0.4575s, Inertia = 129880.02, Iterations = 20
-K=4: Execution time = 0.5135s, Inertia = 99792.23, Iterations = 25
+PARALLEL CONFIGURATION
+--------------------------------------------------------------------------------
+Number of MPI Processes: 6
+Samples per Process: ~16,666
+Total Dataset Size: 100,000 samples
+
+CLUSTERING RESULTS
+--------------------------------------------------------------------------------
+
+K=3:
+  Execution Time: 0.1087 seconds
+  Throughput: 919580 samples/sec
+  Iterations: 14
+  Avg Iteration Time: 0.0020 seconds
+  Inertia: 129880.82
+  Silhouette Score: 0.3762
+  Davies-Bouldin Index: 0.9935
+  Calinski-Harabasz Score: 142479.88
+  Memory Used: 0.88 MB
+
+K=4:
+  Execution Time: 0.1148 seconds
+  Throughput: 870784 samples/sec
+  Iterations: 15
+  Avg Iteration Time: 0.0028 seconds
+  Inertia: 99792.12
+  Silhouette Score: 0.3842
+  Davies-Bouldin Index: 0.9331
+  Calinski-Harabasz Score: 133675.18
+  Memory Used: 0.00 MB

@@ -1,0 +1,57 @@
+{
+    "dataset_info": {
+        "total_samples": 100000,
+        "total_features": 18,
+        "memory_usage_mb": 18.12,
+        "load_time_seconds": 0.1167,
+        "file_size_mb": 15.88
+    },
+    "preprocessing_metrics": {
+        "missing_values_detected": 3,
+        "missing_values_imputed": 3,
+        "preprocessing_time_seconds": 0.0257,
+        "imputation_rate": 0.0,
+        "scaling_time_seconds": 0.0032
+    },
+    "clustering_metrics": {
+        "k_3": {
+            "execution_time_seconds": 1.0048,
+            "iterations": 10,
+            "inertia": 129874.6,
+            "silhouette_score": 0.3782,
+            "davies_bouldin_index": 0.9846,
+            "calinski_harabasz_score": 142490.51,
+            "memory_used_mb": 1.75,
+            "throughput_samples_per_sec": 99524.91,
+            "cluster_balance_ratio": 0.579,
+            "cluster_sizes": {
+                "0": 44470,
+                "2": 29766,
+                "1": 25764
+            }
+        },
+        "k_4": {
+            "execution_time_seconds": 1.0436,
+            "iterations": 13,
+            "inertia": 99789.71,
+            "silhouette_score": 0.3842,
+            "davies_bouldin_index": 0.9331,
+            "calinski_harabasz_score": 133680.09,
+            "memory_used_mb": 0.12,
+            "throughput_samples_per_sec": 95826.17,
+            "cluster_balance_ratio": 0.738,
+            "cluster_sizes": {
+                "2": 30248,
+                "1": 24109,
+                "3": 23315,
+                "0": 22328
+            }
+        }
+    },
+    "performance_metrics": {
+        "total_runtime_seconds": 2.0483,
+        "average_throughput_samples_per_sec": 97675.54,
+        "cpu_cores_used": 1,
+        "parallelization": "Sequential"
+    }
+}
